@@ -39,5 +39,3 @@
 Clear-Stuff:
   clear-inventory: true   # Clear l'inventaire des joueurs (sauf killer si false)
   clear-enderchest: true  # Clear l'enderchest des joueurs (sauf killer si false)
-Drop:
-  pack5: true             # Le boss drop le Pack 5 une fois vaincu
