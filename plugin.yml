@@ -1,0 +1,21 @@
+name: GuardianOfNether
+version: 2.0.0
+main: fr.zyumie.GuardianOfNether.Main
+api-version: 1.21
+author: Zyumie (aka AyanoBrz)
+commands:
+  guardian-of-nether:
+    description: Fait apparaître le Gardien du Nether
+    usage: /guardian-of-nether spawn [x y z]
+    permission: tomboss.spawn.gardianofnether
+  guardian-items:
+    description: Donne les items du Gardien du Nether
+    usage: /guardian-items [player]
+    permission: tomboss.give.guardianitems
+permissions:
+  guardianofnether.spawn.gardianofnether:
+    description: Permet de spawn le Gardien du Nether
+    default: op
+  guardianofnether.give.guardianitems:
+    description: Permet de donner les items du Gardien
+    default: op
