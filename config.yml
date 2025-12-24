@@ -1,3 +1,10 @@
 Clear-Stuff:
-  clear-inventory: true
-  clear-enderchest: true
+  clear-inventory: false
+  clear-enderchest: false
+  kill-villagers: false
+
+Give-Plastron: true
+
+Nether:
+  Nether-Close: true  # If true, Kill Guardian Of Nether for Open Nether
+  Boss-Dead: false
