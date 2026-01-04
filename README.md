@@ -39,3 +39,7 @@
 Clear-Stuff:
   clear-inventory: true   # Clear l'inventaire des joueurs (sauf killer si false)
   clear-enderchest: true  # Clear l'enderchest des joueurs (sauf killer si false)
+```
+
+© 2025 Zyumie. Tous droits réservés.
+Aucune utilisation, modification ou redistribution sans autorisation explicite.
