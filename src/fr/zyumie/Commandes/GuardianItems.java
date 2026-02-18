@@ -14,10 +14,7 @@ import fr.zyumie.GuardianOfNether.Main;
 
 public class GuardianItems implements CommandExecutor {
 
-	private final Main plugin;
-
 	public GuardianItems(Main plugin) {
-		this.plugin = plugin;
 	}
 
 	// --- Méthode statique pour récupérer le plastron custom ---

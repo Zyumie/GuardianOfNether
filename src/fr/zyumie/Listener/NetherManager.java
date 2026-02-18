@@ -8,11 +8,11 @@ import org.bukkit.entity.Player;
 
 import fr.zyumie.GuardianOfNether.Main;
 
-public class NetherListener implements Listener {
+public class NetherManager implements Listener {
 
     private final Main plugin;
 
-    public NetherListener(Main plugin) {
+    public NetherManager(Main plugin) {
         this.plugin = plugin;
     }
 

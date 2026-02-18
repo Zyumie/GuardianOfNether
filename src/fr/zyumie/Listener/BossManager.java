@@ -23,14 +23,14 @@ import fr.zyumie.GuardianOfNether.ConfigGuardian;
 import fr.zyumie.GuardianOfNether.GuardianOfNether;
 import fr.zyumie.GuardianOfNether.Main;
 
-public class BossListener implements Listener {
+public class BossManager implements Listener {
 
     private final Main plugin;
     private final GuardianOfNether guardian;
-    private final NetherListener netherListener;
+    private final NetherManager netherListener;
     private final ConfigGuardian config;
 
-    public BossListener(Main plugin, GuardianOfNether guardian, NetherListener netherListener) {
+    public BossManager(Main plugin, GuardianOfNether guardian, NetherManager netherListener) {
         this.plugin = plugin;
         this.guardian = guardian;
         this.netherListener = netherListener;
@@ -116,14 +116,6 @@ public class BossListener implements Listener {
         return entity.hasMetadata("GuardianOfNether") || entity.getScoreboardTags().contains("boss")
                 || (entity.getCustomName() != null && entity.getCustomName().contains("Boss"));
     }
-
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        VersionManager.notifyPlayer(player, plugin.getDescription().getVersion());
-    }
-
-
 
 }
 

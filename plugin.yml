@@ -1,8 +1,9 @@
 name: GuardianOfNether
-version: 2.5.0
+version: 2.6.0
 main: fr.zyumie.GuardianOfNether.Main
 api-version: 1.21
 author: Zyumie (aka AyanoBrz)
+softdepend: [StackMob]
 commands:
   guardian-of-nether:
     description: Fait apparaître le Gardien du Nether

@@ -2,18 +2,22 @@ package fr.zyumie.GuardianOfNether;
 
 import java.util.Set;
 
+import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import fr.zyumie.Commandes.GuardianCommand;
 import fr.zyumie.Commandes.GuardianItems;
 import fr.zyumie.Listener.*;
+import fr.zyumie.SoftDepend.StackMobHook;
 
 public class Main extends JavaPlugin {
 
     public static Set<java.util.UUID> trackedBosses = new java.util.HashSet<>();
+
+    private StackMobHook stackMobHook;
     private GuardianOfNether guardian;
-    private BossListener bossListener;
-    private NetherListener netherListener;
+    private BossManager bossListener;
+    private NetherManager netherListener;
 
     @Override
     public void onEnable() {
@@ -28,15 +32,24 @@ public class Main extends JavaPlugin {
         
         // Instanciation des classes
         guardian = new GuardianOfNether(this);
-        netherListener = new NetherListener(this);
-        bossListener = new BossListener(this, guardian, netherListener);
+        netherListener = new NetherManager(this);
+        bossListener = new BossManager(this, guardian, netherListener);
       
         
+     // StackMob (soft depend)
+        stackMobHook = new StackMobHook();
+
+        if (stackMobHook.isEnabled()) {
+            Bukkit.getPluginManager().registerEvents(
+                new AntiStack(stackMobHook),
+                this
+            );
+        }
+                
         // Enregistrement des listeners
         getServer().getPluginManager().registerEvents(bossListener, this);
         getServer().getPluginManager().registerEvents(netherListener, this);
-        getServer().getPluginManager().registerEvents(new AntiStackListener(this), this);
-        getServer().getPluginManager().registerEvents(new ArmorGlowListener(this), this);
+        getServer().getPluginManager().registerEvents(new ArmorGlow(this), this);
       
         
         // Commandes
@@ -55,7 +68,7 @@ public class Main extends JavaPlugin {
         return guardian;
     }
 
-    public NetherListener getNetherListener() {
+    public NetherManager getNetherListener() {
         return netherListener;
     }
 }

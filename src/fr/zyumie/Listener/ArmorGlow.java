@@ -17,11 +17,11 @@ import org.bukkit.potion.PotionEffectType;
 
 import fr.zyumie.GuardianOfNether.Main;
 
-public class ArmorGlowListener implements Listener {
+public class ArmorGlow implements Listener {
 
 	private final Main plugin;
 
-	public ArmorGlowListener(Main plugin) {
+	public ArmorGlow(Main plugin) {
 		this.plugin = plugin;
 	}
 
