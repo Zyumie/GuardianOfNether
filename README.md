@@ -9,7 +9,7 @@
 
 ## ✨ GuardianOfNether - Plugin Minecraft
 
-### 📌 Version 2.0.0
+### 📌 Version 2.5.0
 - Boss: **GuardianOfNether**
 - Auteur: Zyumie (aka AyanoBrz)
 - Spécialité: Une fois vaincu, le boss droppe le **Pack 5** (P5) et peut clear les stuffs et enderchests selon la config.
@@ -37,5 +37,15 @@
 
 ```yaml
 Clear-Stuff:
-  clear-inventory: true   # Clear l'inventaire des joueurs (sauf killer si false)
-  clear-enderchest: true  # Clear l'enderchest des joueurs (sauf killer si false)
+  clear-inventory: false
+  clear-enderchest: false
+  kill-villagers: false
+
+Give-Plastron: true
+
+Nether:
+  Nether-Close: true  # If true, Kill Guardian Of Nether for Open Nether
+  Boss-Dead: false
+  ```
+
+  © 2026 Zyumie. Tous droits réservés. Aucune utilisation, modification ou redistribution sans autorisation explicite.
