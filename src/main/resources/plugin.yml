@@ -1,0 +1,41 @@
+name: GuardianOfNether
+version: 3.0.0
+main: fr.zyumie.GuardianOfNether.Main
+api-version: '26.1'
+author: Zyumie (aka AyanoBrz)
+website: https://www.youtube.com/@AyanoBrz
+description: Boss du Nether en 3 phases configurables
+
+softdepend:
+  - StackMob
+
+commands:
+  guardian-of-nether:
+    description: Commandes du Gardien du Nether
+    usage: /guardian-of-nether <spawn|reload|nether> [args]
+    permission: guardianofnether.spawn
+    aliases:
+      - gon
+      - guardian
+
+  guardian-items:
+    description: Donne le plastron du Gardien
+    usage: /guardian-items [joueur]
+    permission: guardianofnether.items
+
+permissions:
+  guardianofnether.spawn:
+    description: Spawner le Gardien du Nether
+    default: op
+
+  guardianofnether.reload:
+    description: Recharger la config à chaud
+    default: op
+
+  guardianofnether.nether:
+    description: Gérer le verrou du Nether
+    default: op
+
+  guardianofnether.items:
+    description: Donner le plastron du Gardien
+    default: op
