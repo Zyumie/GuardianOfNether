@@ -1,13 +1,11 @@
 name: GuardianOfNether
-version: 3.0.0
+version: ${version}
 main: fr.zyumie.GuardianOfNether.Main
-api-version: '26.1'
+api-version: '1.21'
 author: Zyumie (aka AyanoBrz)
 website: https://www.youtube.com/@AyanoBrz
 description: Boss du Nether en 3 phases configurables
-
-softdepend:
-  - StackMob
+softdepend: [StackMob]
 
 commands:
   guardian-of-nether:
