@@ -4,22 +4,40 @@ import fr.zyumie.GuardianOfNether.Config.ConfigManager;
 import fr.zyumie.GuardianOfNether.Main;
 import fr.zyumie.GuardianOfNether.Manager.RewardManager;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryPickupItemEvent;
 import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
-import org.bukkit.event.block.Action;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
+/**
+ * Gère le plastron du Gardien :
+ *  - verrouillage dans le slot d'armure (lock-on-equip)
+ *  - protection contre tout stockage (coffres, enderchest, sacs, cadres...)
+ *    via TOUS les chemins : clic, shift-clic, touches 1-9, touche F,
+ *    glisser-déposer, entonnoirs
+ *  - effet Glowing quand il est porté
+ *
+ * Le shift-clic / clic droit pour ÉQUIPER le plastron reste autorisé.
+ */
 public class ArmorListener implements Listener {
 
 	private final Main          plugin;
@@ -39,43 +57,16 @@ public class ArmorListener implements Listener {
 		}, 40L, 40L);
 	}
 
-	// ── Glow ────────────────────────────────────────────────────
+	// ── Glow : events de rattrapage ─────────────────────────────
 
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent event) {
-		Bukkit.getScheduler().runTaskLater(plugin, () ->
-				updateGlow(event.getPlayer()), 1L);
+		scheduleGlow(event.getPlayer());
 	}
 
 	@EventHandler
 	public void onPlayerRespawn(PlayerRespawnEvent event) {
-		Bukkit.getScheduler().runTaskLater(plugin, () ->
-				updateGlow(event.getPlayer()), 1L);
-	}
-
-	@EventHandler
-	public void onInventoryClick(InventoryClickEvent event) {
-		if (!(event.getWhoClicked() instanceof Player player)) return;
-
-		// Blocage conteneur
-		if (config.chestLockOnEquip) {
-			if (handleLock(event, player)) return;
-		}
-
-		Bukkit.getScheduler().runTaskLater(plugin, () -> updateGlow(player), 1L);
-	}
-
-	@EventHandler
-	public void onInventoryDrag(InventoryDragEvent event) {
-		if (!(event.getWhoClicked() instanceof Player player)) return;
-
-		if (config.chestBlockContainer && isGuardianInDrag(event)) {
-			event.setCancelled(true);
-			player.sendMessage("§cVous ne pouvez pas stocker la Chestplate of Guardian !");
-			return;
-		}
-
-		Bukkit.getScheduler().runTaskLater(plugin, () -> updateGlow(player), 1L);
+		scheduleGlow(event.getPlayer());
 	}
 
 	@EventHandler
@@ -85,82 +76,167 @@ public class ArmorListener implements Listener {
 		if (event.getItem() == null) return;
 		if (!rewardManager.isGuardianChestplate(event.getItem())) return;
 
-		Bukkit.getScheduler().runTaskLater(plugin, () ->
-				updateGlow(event.getPlayer()), 1L);
+		scheduleGlow(event.getPlayer());
 	}
 
-	// ── Lock ────────────────────────────────────────────────────
+	// ── Clic dans un inventaire ─────────────────────────────────
 
-	private boolean handleLock(InventoryClickEvent event, Player player) {
+	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+	public void onInventoryClick(InventoryClickEvent event) {
+		if (!(event.getWhoClicked() instanceof Player player)) return;
+
 		ItemStack current = event.getCurrentItem();
 		ItemStack cursor  = event.getCursor();
+		boolean currentG  = isGuardian(current);
+		boolean cursorG   = isGuardian(cursor);
 
-		boolean currentIsGuardian = rewardManager.isGuardianChestplate(current);
-		boolean cursorIsGuardian  = rewardManager.isGuardianChestplate(cursor);
-
-		if (!currentIsGuardian && !cursorIsGuardian) return false;
-
-		// Blocage retrait depuis le slot armure
-		if (currentIsGuardian && isArmorSlot(event)) {
+		// 1. Retrait depuis le slot d'armure (clic, shift-clic, touches 1-9, F, Q...)
+		if (config.chestLockOnEquip && currentG && isOwnArmorSlot(event)) {
 			event.setCancelled(true);
-			player.sendMessage("§cVous ne pouvez pas retirer la Chestplate of Guardian !");
-			return true;
+			player.sendMessage(config.msgRemoveBlocked);
+			return;
 		}
 
-		// Blocage dépôt dans conteneur externe
-		if (config.chestBlockContainer && isExternalContainer(event)) {
+		if (config.containerProtection) {
+			// 2. Sacs (bundles) : l'item peut y être glissé sans ouvrir de conteneur
+			if (config.containerBlockBundles
+					&& ((currentG && isBundle(cursor)) || (cursorG && isBundle(current)))) {
+				event.setCancelled(true);
+				player.sendMessage(config.msgContainerBlocked);
+				return;
+			}
+
+			// 3. Conteneurs ouverts (enderchest, coffre, ...)
+			if (wouldEnterBlockedInventory(event, player, currentG, cursorG)) {
+				event.setCancelled(true);
+				player.sendMessage(config.msgContainerBlocked);
+				return;
+			}
+		}
+
+		scheduleGlow(player);
+	}
+
+	/**
+	 * Vrai si ce clic ferait entrer le plastron dans l'inventaire du HAUT
+	 * (celui du conteneur) alors que ce type est bloqué.
+	 *
+	 * Les chemins d'exploit couverts :
+	 *  - clic avec le plastron sur le curseur
+	 *  - touches 1-9 (échange avec la hotbar) — ni current ni cursor ne sont
+	 *    le plastron, c'est l'item de la hotbar !
+	 *  - touche F (échange avec la main secondaire)
+	 *  - shift-clic depuis l'inventaire du joueur
+	 */
+	private boolean wouldEnterBlockedInventory(InventoryClickEvent event, Player player,
+	                                           boolean currentG, boolean cursorG) {
+		Inventory top = event.getView().getTopInventory();
+		if (!isBlockedType(top.getType())) return false;
+		if (event.getClickedInventory() == null) return false;
+
+		boolean clickedTop = event.getRawSlot() < top.getSize();
+
+		if (clickedTop) {
+			if (cursorG) return true;
+
+			ClickType click = event.getClick();
+			if (click == ClickType.NUMBER_KEY) {
+				int button = event.getHotbarButton();
+				if (button >= 0 && isGuardian(player.getInventory().getItem(button))) return true;
+			}
+			if (click == ClickType.SWAP_OFFHAND
+					&& isGuardian(player.getInventory().getItemInOffHand())) return true;
+
+			return false;
+		}
+
+		// Clic dans l'inventaire du joueur : le shift-clic envoie vers le conteneur
+		return currentG
+				&& (event.isShiftClick()
+				|| event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY);
+	}
+
+	// ── Glisser-déposer ─────────────────────────────────────────
+
+	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+	public void onInventoryDrag(InventoryDragEvent event) {
+		if (!(event.getWhoClicked() instanceof Player player)) return;
+
+		if (config.containerProtection && isGuardian(event.getOldCursor())) {
+			Inventory top = event.getView().getTopInventory();
+			if (isBlockedType(top.getType())) {
+				int topSize = top.getSize();
+				for (int rawSlot : event.getRawSlots()) {
+					if (rawSlot < topSize) {
+						event.setCancelled(true);
+						player.sendMessage(config.msgContainerBlocked);
+						return;
+					}
+				}
+			}
+		}
+
+		scheduleGlow(player);
+	}
+
+	// ── Entonnoirs / cadres / armor stands ──────────────────────
+
+	/** Un entonnoir sous le plastron jeté au sol ne doit pas l'aspirer. */
+	@EventHandler(ignoreCancelled = true)
+	public void onHopperPickup(InventoryPickupItemEvent event) {
+		if (!config.containerProtection) return;
+		if (!isGuardian(event.getItem().getItemStack())) return;
+		if (isBlockedType(event.getInventory().getType())) event.setCancelled(true);
+	}
+
+	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+	public void onInteractEntity(PlayerInteractEntityEvent event) {
+		if (!config.containerProtection || !config.containerBlockFrames) return;
+
+		Entity clicked = event.getRightClicked();
+		if (!(clicked instanceof ItemFrame) && !(clicked instanceof ArmorStand)) return;
+
+		PlayerInventory inv = event.getPlayer().getInventory();
+		if (isGuardian(inv.getItem(event.getHand()))) {
 			event.setCancelled(true);
-			player.sendMessage("§cVous ne pouvez pas stocker la Chestplate of Guardian !");
-			return true;
+			event.getPlayer().sendMessage(config.msgContainerBlocked);
 		}
+	}
 
-		// Blocage shift-clic vers conteneur
-		if (currentIsGuardian
-				&& config.chestBlockContainer
-				&& event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY
-				&& event.getInventory().getType() != InventoryType.PLAYER) {
-			event.setCancelled(true);
-			player.sendMessage("§cVous ne pouvez pas stocker la Chestplate of Guardian !");
-			return true;
+	// ── Helpers ─────────────────────────────────────────────────
+
+	private boolean isGuardian(ItemStack item) {
+		return rewardManager.isGuardianChestplate(item);
+	}
+
+	private boolean isBundle(ItemStack item) {
+		return item != null && item.getType().name().endsWith("BUNDLE");
+	}
+
+	/** Vrai si ce type d'inventaire est protégé (block-all ou liste blocked-types). */
+	private boolean isBlockedType(InventoryType type) {
+		if (config.containerBlockAll) {
+			return type != InventoryType.PLAYER
+					&& type != InventoryType.CRAFTING
+					&& type != InventoryType.CREATIVE;
 		}
-
-		return false;
+		return config.containerBlockedTypes.contains(type);
 	}
 
-	private boolean isArmorSlot(InventoryClickEvent event) {
-		if (event.getSlotType() == InventoryType.SlotType.ARMOR) return true;
-		if (event.getClick() == ClickType.SHIFT_LEFT
-				|| event.getClick() == ClickType.SHIFT_RIGHT) {
-			return rewardManager.isGuardianChestplate(event.getCurrentItem());
-		}
-		return false;
+	/** Clic sur un slot d'armure du joueur (le shift-clic depuis ailleurs n'est PAS concerné). */
+	private boolean isOwnArmorSlot(InventoryClickEvent event) {
+		return event.getSlotType() == InventoryType.SlotType.ARMOR
+				&& event.getClickedInventory() instanceof PlayerInventory;
 	}
 
-	private boolean isExternalContainer(InventoryClickEvent event) {
-		InventoryType type = event.getInventory().getType();
-		return type == InventoryType.CHEST
-				|| type == InventoryType.ENDER_CHEST
-				|| type == InventoryType.BARREL
-				|| type == InventoryType.SHULKER_BOX
-				|| type == InventoryType.HOPPER
-				|| type == InventoryType.DROPPER
-				|| type == InventoryType.DISPENSER;
+	private void scheduleGlow(Player player) {
+		Bukkit.getScheduler().runTaskLater(plugin, () -> updateGlow(player), 1L);
 	}
-
-	private boolean isGuardianInDrag(InventoryDragEvent event) {
-		if (!rewardManager.isGuardianChestplate(event.getOldCursor())) return false;
-		InventoryType type = event.getInventory().getType();
-		return type != InventoryType.PLAYER && type != InventoryType.CRAFTING;
-	}
-
-	// ── Glow helper ─────────────────────────────────────────────
 
 	private void updateGlow(Player player) {
 		if (!config.chestGlowing) return;
 
-		boolean hasChest = rewardManager.isGuardianChestplate(
-				player.getInventory().getChestplate()
-		);
+		boolean hasChest = isGuardian(player.getInventory().getChestplate());
 
 		if (hasChest && !player.hasPotionEffect(PotionEffectType.GLOWING)) {
 			player.addPotionEffect(

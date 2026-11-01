@@ -47,6 +47,11 @@ public class MinionManager {
      * Spawne un certain nombre de sbires autour d'une position.
      */
     public void spawnWave(Location center, int count) {
+        // Plafond de sbires vivants (0 = illimité) — évite l'accumulation de vagues
+        minions.removeIf(m -> !m.isValid());
+        if (config.minionsMaxAlive > 0) {
+            count = Math.min(count, Math.max(0, config.minionsMaxAlive - minions.size()));
+        }
         for (int i = 0; i < count; i++) {
             // Position aléatoire dans un carré de 5x5 autour du centre
             double offsetX = random.nextDouble() * 5 - 2.5;
