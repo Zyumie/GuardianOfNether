@@ -1,0 +1,35 @@
+#
+#             ╔══════════════════════════════════════════════╗
+#             ║         GuardianOfNether - Nether            ║
+#             ║                by Zyumie                     ║
+#             ╚══════════════════════════════════════════════╝
+#
+
+# true  → le Nether est bloqué jusqu'à la mort du boss
+# false → le Nether est toujours accessible
+nether-close: true
+
+# NE PAS MODIFIER MANUELLEMENT — géré par le plugin
+# (se met à true à la mort du boss, /gon nether reset le remet à false)
+boss-dead: false
+
+# Permission pour ignorer le verrou du Nether
+bypass-permission: "guardianofnether.bypass"
+
+# Ce qui est bloqué tant que le Nether est verrouillé
+block:
+  # Portails du Nether à pied
+  portals: true
+  # Entités qui traversent un portail (wagonnets, bateaux, montures avec joueur...)
+  # true  = toutes les entités (items, mobs...) sont bloquées
+  # false = seulement celles qui transportent un joueur
+  entities: true
+  # Téléportations vers le Nether (perles, /tp...)
+  teleports: true
+
+# -----------------------------------------------
+# MESSAGES (supporte les codes couleur &)
+# -----------------------------------------------
+Messages:
+  nether-open: "&6Le Nether est désormais accessible !"
+  nether-blocked: "&cVous ne pouvez pas entrer dans le Nether tant que le Gardien n'est pas vaincu !"

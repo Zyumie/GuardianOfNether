@@ -1,0 +1,220 @@
+#
+#             ╔══════════════════════════════════════════════╗
+#             ║          GuardianOfNether - Boss             ║
+#             ║                by Zyumie                     ║
+#             ╚══════════════════════════════════════════════╝
+#
+
+# -----------------------------------------------
+# BOSS - Paramètres généraux
+# -----------------------------------------------
+Boss:
+  name: "&4&lGardien du Nether"
+  # Vie totale du boss (identique pour les 3 phases, les phases se déclenchent selon le %)
+  max-health: 300.0
+  # Rayon max autour du point de spawn (en blocs)
+  leash-radius: 100
+  # Supprime le boss + sbires à l'arrêt du serveur (et restaure les blocs de magma)
+  remove-on-disable: true
+  # Sbires au spawn
+  minions-on-spawn: 5
+  # Sbires par vague + intervalle (secondes)
+  minions-wave-count: 3
+  minions-wave-interval: 60
+  # BossBar : SOLID, SEGMENTED_6, SEGMENTED_10, SEGMENTED_12, SEGMENTED_20
+  bossbar-style: SEGMENTED_10
+  # Aura de dégâts autour du boss (sur les joueurs engagés)
+  # Dégâts = base-damage x damage-multiplier de la phase, toutes les secondes
+  aura:
+    enabled: true
+    radius: 2.0
+    base-damage: 8.0
+    fire-ticks: 80
+
+# -----------------------------------------------
+# PHASES
+# -----------------------------------------------
+Phases:
+  Phase-1:
+    speed: 0.22
+    scale: 1.0
+    damage-multiplier: 0.0
+    # Régénération : regen-amount PV toutes les regen-interval secondes
+    regen-amount: 0
+    regen-interval: 10
+    armor:
+      material: NETHERITE  # DIAMOND ou NETHERITE
+      enchants:
+        protection: 4
+        unbreaking: 3
+    particles: FLAME
+    bossbar-color: PURPLE
+
+  Phase-2:
+    # Passe en phase 2 sous ce % de vie
+    hp-threshold-percent: 60
+    speed: 0.28
+    scale: 1.3
+    damage-multiplier: 1.5
+    regen-amount: 2
+    regen-interval: 15
+    armor:
+      material: NETHERITE
+      enchants:
+        protection: 6
+        unbreaking: 3
+        fire_protection: 4
+    particles: SOUL_FIRE_FLAME
+    bossbar-color: YELLOW
+    title: "&6&lPhase 2"
+    subtitle: "&eLe Gardien s'intensifie..."
+
+  Phase-3:
+    hp-threshold-percent: 30
+    speed: 0.35
+    scale: 1.7
+    damage-multiplier: 3.0
+    regen-amount: 5
+    regen-interval: 25
+    armor:
+      material: NETHERITE
+      enchants:
+        protection: 10
+        unbreaking: 5
+        fire_protection: 10
+        thorns: 3
+    particles: LAVA
+    bossbar-color: RED
+    title: "&4&lPhase 3"
+    subtitle: "&c&lFuyez !"
+
+# -----------------------------------------------
+# IA du boss
+# -----------------------------------------------
+AI:
+  enabled: true
+  # Distance max à laquelle le boss repère un joueur
+  aggro-radius: 30
+  # Le boss change de cible toutes les X secondes
+  retarget-interval: 3
+  # NEAREST (plus proche), LOWEST_HEALTH (moins de vie), RANDOM
+  target-mode: NEAREST
+  # Anti-cheese : si la cible est trop loin (pilier, pont, eau...) le boss se téléporte à côté
+  teleport:
+    enabled: true
+    distance: 12
+    # Secondes passées trop loin avant la téléportation
+    delay: 4
+
+# -----------------------------------------------
+# ATTAQUES SPÉCIALES
+# Le boss lance UNE attaque à la fois, au hasard parmi celles disponibles.
+# phases : liste des phases où l'attaque est active (liste vide = toutes)
+# cooldown : secondes avant de pouvoir la relancer
+# message : envoyé aux joueurs proches (vide = aucun)
+# -----------------------------------------------
+Attacks:
+  # Rayon dans lequel les joueurs sont ciblés par les attaques
+  engage-radius: 40
+  # Pause minimale entre 2 attaques (secondes)
+  global-cooldown: 4
+
+  magma-floor:
+    enabled: true
+    phases: [2, 3]
+    cooldown: 15
+    radius: 10
+    # Les blocs reviennent à la normale après X à Y secondes
+    restore-min: 60
+    restore-max: 120
+    message: "&c&l[Gardien] &cLe sol se transforme en magma !"
+
+  sword-rain:
+    enabled: true
+    phases: [3]
+    cooldown: 20
+    swords-per-player: 3
+    damage: 8.0
+    message: "&4&l[Gardien] &cDes épées tombent du ciel !"
+
+  fire-nova:
+    enabled: true
+    phases: [3]
+    cooldown: 30
+    max-radius: 30.0
+    damage: 6.0
+    message: "&4&l[Gardien] &c&lNOVA DE FEU !"
+
+  # NOUVEAU : le boss bondit sur un joueur éloigné
+  leap-slam:
+    enabled: true
+    phases: [2, 3]
+    cooldown: 12
+    # Le joueur ciblé doit être au moins à cette distance
+    min-distance: 7.0
+    radius: 5.0
+    damage: 10.0
+    message: "&6&l[Gardien] &eIl bondit !"
+
+  # NOUVEAU : météores signalés au sol par un cercle de flammes
+  meteor-shower:
+    enabled: true
+    phases: [3]
+    cooldown: 25
+    meteors: 8
+    # Temps d'avertissement avant l'impact (ticks, 20 = 1s)
+    warning-ticks: 30
+    radius: 3.0
+    damage: 12.0
+    message: "&4&l[Gardien] &cDes météores s'abattent !"
+
+  # NOUVEAU : aspire les joueurs vers le boss puis explose
+  vortex:
+    enabled: true
+    phases: [2, 3]
+    cooldown: 28
+    duration-ticks: 60
+    radius: 14.0
+    pull-strength: 0.28
+    blast-radius: 6.0
+    damage: 8.0
+    message: "&5&l[Gardien] &dLe vide vous aspire !"
+
+  # NOUVEAU : foudre des âmes, zones marquées sous chaque joueur
+  soul-lightning:
+    enabled: true
+    phases: [2, 3]
+    cooldown: 18
+    strikes-per-player: 2
+    warning-ticks: 24
+    radius: 2.5
+    damage: 10.0
+    message: "&3&l[Gardien] &bLa foudre des âmes frappe !"
+
+# -----------------------------------------------
+# SBIRES
+# -----------------------------------------------
+Minions:
+  name: "&6Sbire du Gardien"
+  hp: 50.0
+  damage: 6.0
+  speed: 0.25
+  follow-range: 16.0
+  # Nombre max de sbires vivants en même temps (0 = illimité)
+  max-alive: 20
+  armor:
+    material: IRON  # IRON, GOLD, DIAMOND, NETHERITE
+    enchants:
+      protection: 2
+
+# -----------------------------------------------
+# MESSAGES DU BOSS (supporte les codes couleur &)
+# -----------------------------------------------
+Messages:
+  spawn-broadcast: "&cLe &4&lGardien du Nether &cest apparu ! Préparez-vous..."
+  spawn-title: "&4&lGardien du Nether"
+  spawn-subtitle: "&6Préparez-vous..."
+  death-broadcast: "&6Le Gardien du Nether a été vaincu !"
+  death-line: "&c&lGardien&f: Je vais faire disparaître tout ce que vous aimez..."
+  phase-2: "&6Le Gardien entre en &lPhase 2 &6! Il devient plus puissant..."
+  phase-3: "&4Le Gardien entre en &lPhase 3 &4! Fuyez !"

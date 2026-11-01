@@ -1,16 +1,16 @@
 package fr.zyumie.GuardianOfNether.Config;
 
 import org.bukkit.Particle;
+import org.bukkit.boss.BarColor;
 
 import java.util.Map;
 
 /**
  * Données immuables d'une phase du boss.
- * Instanciée par ConfigManager, lue partout ailleurs.
+ * Instanciée par ConfigManager (Boss.yml), lue partout ailleurs.
  */
 public class PhaseConfig {
 
-    public final double maxHp;
     public final double speed;
     public final double scale;
     public final double damageMultiplier;
@@ -21,9 +21,11 @@ public class PhaseConfig {
     public final Particle particle;
     // Seuil en % de HP pour entrer dans cette phase (0 pour phase 1)
     public final int hpThresholdPercent;
+    public final BarColor barColor;
+    public final String title;
+    public final String subtitle;
 
     public PhaseConfig(
-            double maxHp,
             double speed,
             double scale,
             double damageMultiplier,
@@ -32,9 +34,11 @@ public class PhaseConfig {
             String armorMaterial,
             Map<String, Integer> armorEnchants,
             Particle particle,
-            int hpThresholdPercent
+            int hpThresholdPercent,
+            BarColor barColor,
+            String title,
+            String subtitle
     ) {
-        this.maxHp = maxHp;
         this.speed = speed;
         this.scale = scale;
         this.damageMultiplier = damageMultiplier;
@@ -44,5 +48,8 @@ public class PhaseConfig {
         this.armorEnchants = armorEnchants;
         this.particle = particle;
         this.hpThresholdPercent = hpThresholdPercent;
+        this.barColor = barColor;
+        this.title = title;
+        this.subtitle = subtitle;
     }
 }

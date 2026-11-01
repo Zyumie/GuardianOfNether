@@ -7,123 +7,67 @@
 
 ---
 
-## ✨ GuardianOfNether — Plugin Minecraft
+## ✨ GuardianOfNether - Minecraft Plugin
 
-### 📌 Version 3.0.0
-
-- **Boss :** GuardianOfNether
-- **Auteur :** Zyumie (aka AyanoBrz)
-- **Compatibilité :** PaperMC / Purpur 1.21+
-- **Soft-depend :** StackMob (optionnel)
-
----
-
-### 🧠 Concept
-
-Le **Gardien du Nether** est un boss en 3 phases configurables qui garde l'accès au Nether.  
-Il doit être vaincu pour débloquer le portail. À sa mort, il droppe la **Chestplate of Guardian** — une armure maudite aux pouvoirs uniques.
-
----
-
-### ⚔️ Fonctionnalités
-
-- **3 phases progressives** — vitesse, taille, armure, dégâts et régénération augmentent à chaque phase
-- **Zone de leash** — le boss reste confiné dans un rayon configurable autour de son point de spawn
-- **Sbires** — vagues de wither skeletons spawned au départ et à intervalles réguliers
-- **Nether verrouillé** — le Nether est inaccessible tant que le boss n'est pas vaincu (configurable)
-- **Chestplate of Guardian** — droppée à la mort du boss avec :
-  - Armor trim rouge custom
-  - Curse of Vanishing (disparaît si le porteur meurt)
-  - Effet **Glowing** permanent quand portée
-  - Impossible à retirer ou stocker dans un conteneur (coffre, ender chest, shulker box...)
-- **Tout est configurable** dans le `config.yml` sans toucher au code
+### 📌 Version 3.5
+- Boss: **Guardian of the Nether** (3 phases, 7 special attacks, improved AI)
+- Author: Zyumie (aka AyanoBrz)
+- Highlight: while the boss is alive, the **Nether is locked**. Once defeated, it drops the **Chestplate of Guardian**, unlocks the Nether, and can clear players' inventories and enderchests depending on the config.
 
 ---
 
 ### 🔧 Installation
 
-1. Installer un serveur compatible **PaperMC** ou **Purpur** (1.21+)
-2. Télécharger `GuardianOfNether.jar` et le placer dans le dossier `plugins/`
-3. Redémarrer le serveur
-4. Configurer le `plugins/GuardianOfNether/config.yml` selon vos besoins
-5. *(Optionnel)* Installer **StackMob** pour éviter le stacking du boss et des sbires
+1. Install a PaperMC or Purpur server (1.21+).
+2. Download `GuardianOfNether.jar` and place it in the `plugins/` folder.
+3. Restart the server: `Config.yml`, `Boss.yml` and `Nether.yml` are created in `plugins/GuardianOfNether/`.
+
+> ⚠️ **Updating from a version < 3.5**: delete the old `config.yml` from the plugin folder before restarting (settings are now split across 3 files).
 
 ---
 
-### 🎮 Commandes
+### 🎮 Commands
 
-| Commande | Description | Permission |
-|----------|-------------|------------|
-| `/guardian-of-nether spawn [x y z]` | Spawne le Gardien du Nether | `guardianofnether.spawn` |
-| `/guardian-of-nether reload` | Recharge la config à chaud | `guardianofnether.reload` |
-| `/guardian-of-nether nether reset` | Reverrouille le Nether pour un nouveau cycle | `guardianofnether.nether` |
-| `/guardian-items [joueur]` | Donne la Chestplate of Guardian | `guardianofnether.items` |
+| Command | Description | Permission |
+|---------|-------------|-----------|
+| `/guardian-of-nether spawn [x y z]` | Spawns the Guardian of the Nether | `guardianofnether.spawn` |
+| `/guardian-of-nether reload` | Hot-reloads the 3 config files | `guardianofnether.reload` |
+| `/guardian-of-nether nether reset` | Locks the Nether again for a new cycle | `guardianofnether.nether` |
+| `/guardian-items [player]` | Gives the Chestplate of Guardian | `guardianofnether.items` |
 
-**Alias disponibles :** `/gon`, `/guardian`
+Aliases for `/guardian-of-nether`: `/gon`, `/guardian`.
 
----
-
-### 🔑 Permissions
-
-| Permission | Description | Défaut |
-|------------|-------------|--------|
-| `guardianofnether.spawn` | Spawner le boss | OP |
-| `guardianofnether.reload` | Recharger la config | OP |
-| `guardianofnether.nether` | Gérer le verrou du Nether | OP |
-| `guardianofnether.items` | Donner la Chestplate | OP |
+Extra permission: `guardianofnether.bypass` (ignores the Nether lock, configurable in `Nether.yml`).
 
 ---
 
-### ⚙️ Configuration (`config.yml`)
+### ⚙️ Configuration
+
+| File | Contents |
+|------|----------|
+| `Config.yml` | Chestplate, container protection, enchant / trim / netherite rules, on-death effects, messages |
+| `Boss.yml` | Boss, phases, AI, special attacks, minions, boss messages |
+| `Nether.yml` | Nether lock, bypass, messages |
+
+#### 🛡️ Chestplate protection (`Config.yml`)
 
 ```yaml
-# Paramètres généraux du boss
-Boss:
-  name: "&4&lGardien du Nether"
-  leash-radius: 20          # Zone max autour du spawn (blocs)
-  minions-on-spawn: 5       # Sbires spawned au départ
-  minions-wave-count: 3     # Sbires par vague
-  minions-wave-interval: 60 # Intervalle entre vagues (secondes)
+Container-Protection:
+  enabled: true
+  block-all: false          # true = block ALL external inventories at once
+  blocked-types:            # otherwise, only these types
+    - CHEST
+    - ENDER_CHEST
+    - SHULKER_BOX
+    # ...
+  block-bundles: true
+  block-item-frames: true
 
-# 3 phases configurables (HP, vitesse, taille, dégâts, regen, armure, particules)
-Phases:
-  Phase-1: { hp: 300, speed: 0.22, scale: 1.0, ... }
-  Phase-2: { hp-threshold-percent: 60, speed: 0.28, scale: 1.3, ... }
-  Phase-3: { hp-threshold-percent: 30, speed: 0.35, scale: 1.7, ... }
-
-# Drop à la mort du boss
-Drop:
-  Chestplate:
-    name: "&cChestplate of Guardian"
-    curse-of-vanishing: true
-    trim: { material: REDSTONE, pattern: SENTRY }
-
-# Comportement du plastron quand porté
-Chestplate-Behavior:
-  glowing: true               # Effet Glowing permanent
-  lock-on-equip: true         # Impossible à retirer
-  block-container-storage: true # Impossible à stocker dans un conteneur
-
-# Nether
-Nether:
-  nether-close: true  # true = bloqué jusqu'à la mort du boss
-
-# Effets à la mort du boss
-On-Death:
-  clear-inventory: false
-  clear-enderchest: false
-  kill-villagers: false
-  give-chestplate: true
-
-# Tous les messages sont personnalisables dans la section Messages
-```
-
-> Le fichier `config.yml` complet est généré automatiquement au premier démarrage.
-
----
-
-### 📁 Structure du projet
-
+Chestplate-Rules:
+  enchantable: false        # enchanting table + anvil
+  allow-grindstone: false
+  allow-trim: false
+  allow-netherite-upgrade: false
 ```
 fr.zyumie.GuardianOfNether
 ├── Main.java
@@ -137,5 +81,31 @@ fr.zyumie.GuardianOfNether
 
 ---
 
-*© 2026 Zyumie. Tous droits réservés.  
-Aucune utilisation, modification ou redistribution sans autorisation explicite.*
+#### ⚔️ Special attacks (`Boss.yml`)
+
+Each attack has its own `enabled`, `phases`, `cooldown` and settings.
+
+| Attack | Default phases | Description |
+|--------|----------------|-------------|
+| `magma-floor` | 2, 3 | The floor temporarily turns into magma |
+| `sword-rain` | 3 | Rain of netherite swords |
+| `fire-nova` | 3 | Fire wave expanding around the boss |
+| `leap-slam` | 2, 3 | The boss leaps onto a distant player |
+| `meteor-shower` | 3 | Meteors announced by a ring of flames |
+| `vortex` | 2, 3 | Pulls players in, then explodes |
+| `soul-lightning` | 2, 3 | Marked zones under players, then lightning |
+
+#### 🌋 On boss death (`Config.yml`)
+
+```yaml
+On-Death:
+  clear-inventory: false    # Clear players' inventories (the killer keeps their Guardian chestplate)
+  clear-enderchest: false   # Clear players' enderchests
+  kill-villagers: false     # Remove all villagers
+  give-chestplate: true     # Give the Chestplate of Guardian to the killer
+```
+
+---
+
+© 2026 Zyumie. All rights reserved.
+No use, modification or redistribution without explicit permission.

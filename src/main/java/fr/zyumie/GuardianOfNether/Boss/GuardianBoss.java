@@ -8,8 +8,6 @@ import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
-import org.bukkit.boss.BarColor;
-import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.WitherSkeleton;
@@ -20,40 +18,31 @@ import org.bukkit.scheduler.BukkitTask;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Orchestre le cycle de vie complet du boss :
- * spawn → scheduler central → phases → leash → regen → mort.
- *
- * PhaseManager  : transitions de phase (vitesse, taille, armure)
- * MinionManager : spawn et tracking des sbires
- * LeashHandler  : maintien dans la zone
- */
 public class GuardianBoss {
 
-    // Clé PDC pour identifier le boss de façon fiable
     public static final String BOSS_PDC_KEY = "guardian_boss";
+
+    // Le scheduler principal tourne toutes les 10 ticks (2 fois par seconde)
+    private static final int TICK_STEP = 10;
+    private static final int RUNS_PER_SECOND = 2;
 
     private final Main          plugin;
     private final ConfigManager config;
 
-    private WitherSkeleton  bossEntity;
-    private Location        spawnPoint;
-    private BossBar         bossBar;
-    private PhaseManager    phaseManager;
-    private MinionManager   minionManager;
+    private WitherSkeleton bossEntity;
+    private Location       spawnPoint;
+    private BossBar        bossBar;
+    private PhaseManager   phaseManager;
+    private MinionManager  minionManager;
+    private AttackManager  attackManager;
+    private BossAI         ai;
 
-    // Joueurs ayant frappé le boss — utilisés pour les dégâts de zone
     private final Set<Player> engagedPlayers = new HashSet<>();
 
-    // Tâches Bukkit — stockées pour pouvoir les annuler proprement
     private BukkitTask mainTask;
     private BukkitTask minionWaveTask;
-    private BukkitTask bossBarTask;
 
-    // Compteur de ticks pour la régénération
-    private int tickCounter = 0;
-
-    // Évite de déclencher announceDeath plusieurs fois
+    private int     runCounter     = 0;
     private boolean deathAnnounced = false;
 
     public GuardianBoss(Main plugin, ConfigManager config, MinionManager minionManager) {
@@ -67,110 +56,121 @@ public class GuardianBoss {
     public void spawn(Location loc) {
         spawnPoint = loc.clone();
 
-        // Spawn de l'entité
         bossEntity = loc.getWorld().spawn(loc, WitherSkeleton.class, entity -> {
-            // Configuré dans le consumer avant que les events de spawn ne se déclenchent
             entity.setCustomName(config.bossName);
             entity.setCustomNameVisible(true);
             entity.setPersistent(true);
-
-            // Marque PDC — identifie ce mob comme le boss
+            entity.setRemoveWhenFarAway(false);
             entity.getPersistentDataContainer().set(
-                    new org.bukkit.NamespacedKey(plugin, BOSS_PDC_KEY),
-                    PersistentDataType.BYTE, (byte) 1
+                new org.bukkit.NamespacedKey(plugin, BOSS_PDC_KEY),
+                PersistentDataType.BYTE, (byte) 1
             );
-
-            // Tag scoreboard pour StackMob
             entity.addScoreboardTag("guardian_boss");
         });
 
-        // HP max depuis phase 1
-        setAttribute(bossEntity, Attribute.MAX_HEALTH, config.phase1.maxHp);
-        bossEntity.setHealth(config.phase1.maxHp);
-        setAttribute(bossEntity, Attribute.FOLLOW_RANGE, config.leashRadius);
+        setAttribute(bossEntity, Attribute.MAX_HEALTH, config.bossMaxHealth);
+        bossEntity.setHealth(config.bossMaxHealth);
+        setAttribute(bossEntity, Attribute.FOLLOW_RANGE,
+                Math.max(config.leashRadius, config.aiAggroRadius));
 
-        // Tracking global
         Main.trackedBosses.add(bossEntity.getUniqueId());
 
-        // Phase initiale (armure, vitesse, taille phase 1)
-        phaseManager = new PhaseManager(plugin, config, bossEntity);
+        phaseManager  = new PhaseManager(plugin, config, bossEntity);
+        attackManager = new AttackManager(plugin, config, bossEntity);
+        ai            = new BossAI(config, bossEntity, spawnPoint);
         phaseManager.applyInitialPhase();
 
-        // BossBar
         setupBossBar();
-
-        // Vague initiale de sbires
         minionManager.spawnWave(loc, config.minionsOnSpawn);
-
-        // Annonce spawn
         announceSpawn();
-
-        // Démarrage des schedulers
         startMainScheduler();
         startMinionWaveScheduler();
     }
 
     // ── Schedulers ───────────────────────────────────────────────
 
+    /**
+     * Boucle unique (toutes les 10 ticks) : phases, IA, attaques, bossbar.
+     * Les tâches « à la seconde » (régén, aura, nettoyage) tournent 1 run sur 2.
+     */
     private void startMainScheduler() {
         mainTask = new BukkitRunnable() {
+            int lastPhase = 1;
+
             @Override
             public void run() {
                 if (!bossEntity.isValid()) {
-                    cancel();
                     handleDeath();
                     return;
                 }
 
+                runCounter++;
+                boolean everySecond = runCounter % RUNS_PER_SECOND == 0;
+
+                // 1. Transition de phase
+                phaseManager.tick();
+                int currentPhase = phaseManager.getCurrentPhase();
+                if (currentPhase != lastPhase) {
+                    attackManager.phaseShockwave(currentPhase);
+                    lastPhase = currentPhase;
+                }
                 PhaseConfig pc = phaseManager.getCurrentPhaseConfig();
 
-                // 1. Vérification et transition de phase
-                phaseManager.tick();
+                // 2. IA puis attaques spéciales
+                ai.tick(TICK_STEP);
+                attackManager.tick(currentPhase, TICK_STEP);
 
-                // 2. Leash — ramène le boss à son point de spawn si trop loin
-                double leashSq = config.leashRadius * config.leashRadius;
+                // 3. Leash
+                double leashSq = (double) config.leashRadius * config.leashRadius;
                 if (bossEntity.getLocation().distanceSquared(spawnPoint) > leashSq) {
                     bossEntity.teleport(spawnPoint);
                 }
 
-                // 3. Régénération
-                tickCounter++;
-                int regenIntervalTicks = pc.regenIntervalSeconds * 20;
-                if (pc.regenAmount > 0 && tickCounter % regenIntervalTicks == 0) {
-                    double newHp = Math.min(
-                            bossEntity.getHealth() + pc.regenAmount,
-                            bossEntity.getAttribute(Attribute.MAX_HEALTH).getBaseValue()
-                    );
+                // 4. BossBar
+                updateBossBar(pc);
+
+                // 5. Particules de phase
+                spawnPhaseParticles(pc.particle);
+
+                if (!everySecond) return;
+
+                // ── Tâches à la seconde ──
+
+                // 6. Régénération
+                int regenRuns = Math.max(1, pc.regenIntervalSeconds) * RUNS_PER_SECOND;
+                if (pc.regenAmount > 0 && runCounter % regenRuns == 0) {
+                    double newHp = Math.min(bossEntity.getHealth() + pc.regenAmount, maxHealth());
                     bossEntity.setHealth(newHp);
                     bossEntity.getWorld().spawnParticle(
-                            Particle.HEART,
-                            bossEntity.getLocation().add(0, 1, 0),
-                            5
+                        Particle.HEART,
+                        bossEntity.getLocation().add(0, 1, 0),
+                        5
                     );
                 }
 
-                // 4. Nettoyage des joueurs hors zone ou déconnectés
+                // 7. Nettoyage joueurs hors zone
                 engagedPlayers.removeIf(p ->
-                        !p.isOnline() || p.isDead() ||
-                                p.getLocation().distanceSquared(spawnPoint) > leashSq
+                    !p.isOnline() || p.isDead()
+                    || !p.getWorld().equals(spawnPoint.getWorld())
+                    || p.getLocation().distanceSquared(spawnPoint) > leashSq
                 );
 
-                // 5. Dégâts de zone + particules autour du boss
-                for (Player target : engagedPlayers) {
-                    double distSq = target.getLocation().distanceSquared(bossEntity.getLocation());
-                    if (distSq <= 10 * 10 && pc.damageMultiplier > 0) {
-                        target.damage(8 * pc.damageMultiplier, bossEntity);
-                        target.setFireTicks(80);
+                // 8. Aura de dégâts
+                if (config.auraEnabled && pc.damageMultiplier > 0) {
+                    double auraSq = config.auraRadius * config.auraRadius;
+                    for (Player target : engagedPlayers) {
+                        if (!target.getWorld().equals(bossEntity.getWorld())) continue;
+                        if (target.getLocation().distanceSquared(bossEntity.getLocation()) <= auraSq) {
+                            target.damage(config.auraDamage * pc.damageMultiplier, bossEntity);
+                            target.setFireTicks(config.auraFireTicks);
+                        }
                     }
                 }
 
-                // 6. Particules de phase autour du boss
-                spawnPhaseParticles(pc.particle);
-
-                // 7. Tick des sbires (nettoyage des morts)
+                // 9. Nettoyage des sbires morts
                 minionManager.tickAndGetAlive();
             }
-        }.runTaskTimer(plugin, 0L, 20L);
+        }.runTaskTimer(plugin, 0L, TICK_STEP);
     }
 
     private void startMinionWaveScheduler() {
@@ -178,60 +178,58 @@ public class GuardianBoss {
         minionWaveTask = new BukkitRunnable() {
             @Override
             public void run() {
-                if (!bossEntity.isValid()) {
-                    cancel();
-                    return;
-                }
+                if (!bossEntity.isValid()) { cancel(); return; }
                 minionManager.spawnWave(spawnPoint, config.minionsWaveCount);
             }
         }.runTaskTimer(plugin, intervalTicks, intervalTicks);
     }
 
+    private void cancelTasks() {
+        if (mainTask != null)       mainTask.cancel();
+        if (minionWaveTask != null) minionWaveTask.cancel();
+    }
+
     // ── BossBar ──────────────────────────────────────────────────
 
     private void setupBossBar() {
-        bossBar = Bukkit.createBossBar(config.bossName, BarColor.RED, BarStyle.SEGMENTED_10);
+        bossBar = Bukkit.createBossBar(config.bossName, config.phase1.barColor, config.bossBarStyle);
         Bukkit.getOnlinePlayers().forEach(bossBar::addPlayer);
-
-        bossBarTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!bossEntity.isValid()) {
-                    bossBar.removeAll();
-                    cancel();
-                    return;
-                }
-                double maxHp = bossEntity.getAttribute(Attribute.MAX_HEALTH).getBaseValue();
-                bossBar.setProgress(Math.max(0, bossEntity.getHealth() / maxHp));
-
-                // Couleur de la bossbar selon la phase
-                bossBar.setColor(switch (phaseManager.getCurrentPhase()) {
-                    case 2  -> BarColor.YELLOW;
-                    case 3  -> BarColor.RED;
-                    default -> BarColor.PURPLE;
-                });
-            }
-        }.runTaskTimer(plugin, 0L, 10L); // Toutes les 0.5s pour être réactif
     }
 
-    // ── Mort ─────────────────────────────────────────────────────
+    private void updateBossBar(PhaseConfig pc) {
+        bossBar.setProgress(Math.max(0, Math.min(1, bossEntity.getHealth() / maxHealth())));
+        bossBar.setColor(pc.barColor);
+    }
 
-    /**
-     * Appelé quand le boss devient invalide (mort détectée par le scheduler).
-     * Le BossListener gère le drop et les effets — ici on gère juste le cleanup.
-     */
+    // ── Mort / arrêt ─────────────────────────────────────────────
+
     private void handleDeath() {
         if (deathAnnounced) return;
         deathAnnounced = true;
 
-        // Suppression des sbires restants
+        cancelTasks();
         minionManager.killAll();
+        attackManager.restoreAllBlocks(); // restaure les blocs magma
+        if (bossBar != null) bossBar.removeAll();
+        announceDeath();
+    }
 
-        // Retrait de la bossbar
+    /**
+     * Arrêt propre (plugin désactivé / serveur stoppé) : pas d'annonce de mort,
+     * les blocs de magma sont restaurés, et le boss est retiré si la config le demande.
+     */
+    public void shutdown() {
+        deathAnnounced = true;
+
+        cancelTasks();
+        if (minionManager != null) minionManager.killAll();
+        if (attackManager != null) attackManager.restoreAllBlocks();
         if (bossBar != null) bossBar.removeAll();
 
-        // Annonce mort
-        announceDeath();
+        if (bossEntity != null) {
+            Main.trackedBosses.remove(bossEntity.getUniqueId());
+            if (config.removeBossOnDisable && bossEntity.isValid()) bossEntity.remove();
+        }
     }
 
     // ── Annonces ─────────────────────────────────────────────────
@@ -257,42 +255,37 @@ public class GuardianBoss {
     private void spawnPhaseParticles(Particle particle) {
         Location center = bossEntity.getLocation().add(0, 1, 0);
         int points = 12;
-        double radius = 1.2;
+        double radius = 1.2 * phaseManager.getCurrentPhaseConfig().scale;
         for (int i = 0; i < points; i++) {
             double angle = 2 * Math.PI * i / points;
             double x = center.getX() + radius * Math.cos(angle);
             double z = center.getZ() + radius * Math.sin(angle);
-            Location pLoc = new Location(center.getWorld(), x, center.getY(), z);
-            center.getWorld().spawnParticle(particle, pLoc, 1, 0, 0, 0, 0);
+            center.getWorld().spawnParticle(particle, x, center.getY(), z, 1, 0, 0, 0, 0);
         }
     }
 
     // ── API publique ─────────────────────────────────────────────
 
-    /**
-     * Enregistre un joueur comme engagé dans le combat
-     * (appelé depuis BossListener quand il frappe le boss).
-     */
     public void playerEngaged(Player player) {
         engagedPlayers.add(player);
     }
 
-    /**
-     * Ajoute un joueur à la bossbar (pour les joueurs qui rejoignent en cours de combat).
-     */
     public void addToBossBar(Player player) {
         if (bossBar != null) bossBar.addPlayer(player);
     }
 
-    public WitherSkeleton getBossEntity() {
-        return bossEntity;
-    }
+    public WitherSkeleton getBossEntity() { return bossEntity; }
 
     public boolean isAlive() {
         return bossEntity != null && bossEntity.isValid();
     }
 
-    // ── Helper ───────────────────────────────────────────────────
+    // ── Helpers ──────────────────────────────────────────────────
+
+    private double maxHealth() {
+        var attr = bossEntity.getAttribute(Attribute.MAX_HEALTH);
+        return attr != null ? attr.getBaseValue() : config.bossMaxHealth;
+    }
 
     private void setAttribute(WitherSkeleton entity, Attribute attr, double value) {
         var instance = entity.getAttribute(attr);

@@ -5,118 +5,29 @@
 #             ║  My Discord : https://discord.gg/dyccdcXMJn  ║
 #             ╚══════════════════════════════════════════════╝
 #
+#  Fichiers de configuration :
+#   - Config.yml : configuration principale (ce fichier)
+#   - Boss.yml   : boss, phases, attaques, IA et sbires
+#   - Nether.yml : verrouillage du Nether
+#
+
+General:
+  # Vérifie les mises à jour sur Modrinth au démarrage
+  check-updates: true
 
 # -----------------------------------------------
-# BOSS - Paramètres généraux
-# -----------------------------------------------
-Boss:
-  # Nom affiché au-dessus du boss (supporte les codes couleur &)
-  name: "&4&lGardien du Nether"
-
-  # Zone maximale dans laquelle le boss peut s'éloigner de son point de spawn (en blocs)
-  leash-radius: 20
-
-  # Nombre de sbires spawned au départ
-  minions-on-spawn: 5
-
-  # Nombre de sbires spawned toutes les X secondes
-  minions-wave-count: 3
-
-  # Intervalle entre chaque vague de sbires (en secondes)
-  minions-wave-interval: 60
-
-# -----------------------------------------------
-# PHASES - 3 phases configurables
-# Le boss passe en phase 2 sous le seuil de HP phase-2-threshold, etc.
-# -----------------------------------------------
-Phases:
-
-  Phase-1:
-    # Seuil de vie MAX pour cette phase (le boss démarre ici)
-    hp: 300.0
-    # Vitesse de déplacement (valeur Minecraft, 0.25 = normal)
-    speed: 0.22
-    # Taille du boss (1.0 = normal, 2.0 = double)
-    scale: 1.0
-    # Dégâts bonus appliqués aux joueurs proches (multiplicateur)
-    damage-multiplier: 0.0
-    # Régénération de vie toutes les X secondes
-    regen-amount: 0
-    regen-interval: 10
-    # Armure du boss pour cette phase
-    armor:
-      material: NETHERITE  # DIAMOND ou NETHERITE
-      enchants:
-        protection: 4
-        unbreaking: 3
-    # Particules autour du boss
-    particles: FLAME
-
-  Phase-2:
-    # Le boss passe en phase 2 quand il tombe sous ce % de vie
-    hp-threshold-percent: 60
-    hp: 300.0
-    speed: 0.28
-    scale: 1.3
-    damage-multiplier: 1.5
-    regen-amount: 3
-    regen-interval: 10
-    armor:
-      material: NETHERITE
-      enchants:
-        protection: 6
-        unbreaking: 3
-        fire_protection: 4
-    particles: SOUL_FIRE_FLAME
-
-  Phase-3:
-    # Le boss passe en phase 3 quand il tombe sous ce % de vie
-    hp-threshold-percent: 30
-    hp: 300.0
-    speed: 0.35
-    scale: 1.7
-    damage-multiplier: 3.0
-    regen-amount: 5
-    regen-interval: 8
-    armor:
-      material: NETHERITE
-      enchants:
-        protection: 10
-        unbreaking: 5
-        fire_protection: 10
-        thorns: 3
-    particles: LAVA
-
-# -----------------------------------------------
-# MINIONS - Sbires du gardien
-# -----------------------------------------------
-Minions:
-  name: "&6Sbire du Gardien"
-  hp: 50.0
-  damage: 6.0
-  speed: 0.25
-  follow-range: 16.0
-  # Armure des sbires
-  armor:
-    material: IRON  # IRON, GOLD, DIAMOND, NETHERITE
-    enchants:
-      protection: 2
-
-# -----------------------------------------------
-# DROP - Récompense à la mort du boss
+# DROP - Plastron donné à la mort du boss
 # -----------------------------------------------
 Drop:
-  # Plastron droppé à la mort du boss
   Chestplate:
     name: "&cChestplate of Guardian"
     material: DIAMOND_CHESTPLATE
     unbreakable: true
-    # Cursed of Vanishing : disparaît si le joueur meurt avec
+    # Curse of Vanishing : disparaît si le joueur meurt avec
     curse-of-vanishing: true
-    # Armor trim (couleur/motif)
     trim:
       material: REDSTONE   # REDSTONE, GOLD, EMERALD, etc.
-      pattern: SENTRY       # SENTRY, DUNE, COAST, WILD, etc.
+      pattern: SENTRY      # SENTRY, DUNE, COAST, WILD, etc.
     enchants:
       protection: 4
       unbreaking: 3
@@ -132,28 +43,73 @@ Drop:
 Chestplate-Behavior:
   # Effet Glowing permanent quand porté
   glowing: true
-  # Empêche le joueur de retirer le plastron de son inventaire
+  # Empêche de retirer le plastron du slot d'armure
   lock-on-equip: true
-  # Empêche de mettre le plastron dans un coffre / conteneur
-  block-container-storage: true
 
 # -----------------------------------------------
-# NETHER
+# PROTECTION CONTENEURS
+# Empêche de ranger le plastron dans un coffre, l'enderchest, etc.
+# Bloque TOUTES les méthodes : clic, shift-clic, touches 1-9, touche F
+# (échange main secondaire), drag, entonnoirs, sacs (bundles)...
 # -----------------------------------------------
-Nether:
-  # true  → le Nether est bloqué jusqu'à la mort du boss
-  # false → le Nether est toujours accessible
-  nether-close: true
-  # NE PAS MODIFIER MANUELLEMENT — géré par le plugin
-  boss-dead: false
+Container-Protection:
+  # false = aucune protection (le plastron peut être rangé partout)
+  enabled: true
+  # true = bloque TOUS les inventaires externes d'un coup
+  #        (ignore la liste blocked-types ci-dessous)
+  block-all: false
+  # Types d'inventaires bloqués quand block-all est false
+  # (noms de l'enum InventoryType : retire une ligne pour autoriser ce type)
+  blocked-types:
+    - CHEST
+    - ENDER_CHEST
+    - BARREL
+    - SHULKER_BOX
+    - HOPPER
+    - DROPPER
+    - DISPENSER
+    - FURNACE
+    - BLAST_FURNACE
+    - SMOKER
+    - BREWING
+    - CRAFTER
+    - DECORATED_POT
+    - CHISELED_BOOKSHELF
+    - LECTERN
+    - COMPOSTER
+    - JUKEBOX
+    - WORKBENCH
+    - LOOM
+    - CARTOGRAPHY
+    - STONECUTTER
+    - MERCHANT
+    - BEACON
+  # Bloque aussi le stockage dans un sac (bundle)
+  block-bundles: true
+  # Bloque aussi les cadres (item frames) et armor stands
+  block-item-frames: true
+
+# -----------------------------------------------
+# RÈGLES DU PLASTRON
+# -----------------------------------------------
+Chestplate-Rules:
+  # Autorise l'enchantement (table d'enchantement + enclume)
+  # false = enclume et table bloquées pour le plastron
+  enchantable: false
+  # Autorise la meule (elle retire les enchantements !)
+  allow-grindstone: false
+  # Autorise l'ajout / le changement de trim (table de forgeron)
+  allow-trim: false
+  # Autorise l'upgrade en netherite (table de forgeron)
+  allow-netherite-upgrade: false
 
 # -----------------------------------------------
 # EFFETS À LA MORT DU BOSS
 # -----------------------------------------------
 On-Death:
-  # Vider l'inventaire de tous les joueurs (sauf le killer)
+  # Vider l'inventaire de tous les joueurs (sauf le plastron du killer)
   clear-inventory: false
-  # Vider l'enderchest de tous les joueurs (sauf le killer)
+  # Vider l'enderchest de tous les joueurs
   clear-enderchest: false
   # Supprimer tous les villageois du serveur
   kill-villagers: false
@@ -162,15 +118,9 @@ On-Death:
 
 # -----------------------------------------------
 # MESSAGES (supporte les codes couleur &)
+# Les messages du boss sont dans Boss.yml, ceux du Nether dans Nether.yml
 # -----------------------------------------------
 Messages:
-  spawn-broadcast: "&cLe &4&lGardien du Nether &cest apparu ! Préparez-vous..."
-  spawn-title: "&4&lGardien du Nether"
-  spawn-subtitle: "&6Préparez-vous..."
-  death-broadcast: "&6Le Gardien du Nether a été vaincu !"
-  death-line: "&c&lGardien&f: Je vais faire disparaître tout ce que vous aimez..."
-  nether-open: "&6Le Nether est désormais accessible !"
-  nether-blocked: "&cVous ne pouvez pas entrer dans le Nether tant que le Gardien n'est pas vaincu !"
   chestplate-received: "&aVous avez reçu la &cChestplate of Guardian &a!"
-  phase-2: "&6Le Gardien entre en &lPhase 2 &6! Il devient plus puissant..."
-  phase-3: "&4Le Gardien entre en &lPhase 3 &4! Fuyez !"
+  container-blocked: "&cVous ne pouvez pas stocker la Chestplate of Guardian !"
+  remove-blocked: "&cVous ne pouvez pas retirer la Chestplate of Guardian !"

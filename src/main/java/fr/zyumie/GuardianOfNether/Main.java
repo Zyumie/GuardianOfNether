@@ -1,5 +1,6 @@
 package fr.zyumie.GuardianOfNether;
 
+import fr.zyumie.GuardianOfNether.Boss.GuardianBoss;
 import fr.zyumie.GuardianOfNether.Commandes.ItemCommand;
 import fr.zyumie.GuardianOfNether.Commandes.SpawnCommand;
 import fr.zyumie.GuardianOfNether.Manager.RewardManager;
@@ -8,6 +9,7 @@ import fr.zyumie.GuardianOfNether.Config.ConfigManager;
 import fr.zyumie.GuardianOfNether.SoftDepend.AntiStack;
 import fr.zyumie.GuardianOfNether.Listener.ArmorListener;
 import fr.zyumie.GuardianOfNether.Listener.BossListener;
+import fr.zyumie.GuardianOfNether.Listener.ChestplateRulesListener;
 import fr.zyumie.GuardianOfNether.Manager.VersionManager;
 import fr.zyumie.GuardianOfNether.Listener.NetherListener;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -31,8 +33,8 @@ public class Main extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        // 1. Config — toujours en premier
-        saveDefaultConfig();
+        // 1. Configs — toujours en premier
+        //    (Config.yml, Boss.yml et Nether.yml sont créés au besoin par le ConfigManager)
         configManager = new ConfigManager(this);
 
         // 2. Managers indépendants
@@ -47,6 +49,8 @@ public class Main extends JavaPlugin {
         getServer().getPluginManager().registerEvents(netherListener,  this);
         getServer().getPluginManager().registerEvents(
                 new ArmorListener(this, configManager, rewardManager), this);
+        getServer().getPluginManager().registerEvents(
+                new ChestplateRulesListener(configManager, rewardManager), this);
 
         // 5. StackMob (soft-depend — enregistré seulement si présent)
         stackMobHook = new StackMobHook();
@@ -59,7 +63,9 @@ public class Main extends JavaPlugin {
         // 6. VersionManager
         versionManager = new VersionManager(this);
         getServer().getPluginManager().registerEvents(versionManager, this);
-        versionManager.checkAsync();
+        if (configManager.checkUpdates) {
+            versionManager.checkAsync();
+        }
 
         // 7. Commandes
         SpawnCommand spawnCmd = new SpawnCommand(this, configManager, bossListener, netherListener);
@@ -75,8 +81,13 @@ public class Main extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        // Nettoyage des boss bar et schedulers gérés automatiquement par Bukkit
-        // à l'arrêt du plugin — pas besoin de cleanup manuel ici
+        // Arrêt propre du boss actif : restaure les blocs de magma, retire
+        // les sbires, la bossbar et (selon Boss.yml) le boss lui-même
+        if (bossListener != null) {
+            GuardianBoss active = bossListener.getActiveBoss();
+            if (active != null) active.shutdown();
+        }
+        trackedBosses.clear();
         getLogger().info("GuardianOfNether désactivé !");
     }
 
