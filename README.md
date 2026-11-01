@@ -69,6 +69,17 @@ Chestplate-Rules:
   allow-trim: false
   allow-netherite-upgrade: false
 ```
+fr.zyumie.GuardianOfNether
+├── Main.java
+├── Config/        ConfigManager, PhaseConfig
+├── Boss/          GuardianBoss, PhaseManager, MinionManager
+├── Manager/       RewardManager, VersionManager
+├── Listener/      BossListener, ArmorListener, NetherListener, AntiStackListener
+├── Commandes/     SpawnCommand, ItemCommand
+└── SoftDepend/    StackMobHook
+```
+
+---
 
 #### ⚔️ Special attacks (`Boss.yml`)
 
